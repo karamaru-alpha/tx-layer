@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/karamaru-alpha/layer-tx/context-pattern/infra/mysql"
-	"github.com/karamaru-alpha/layer-tx/context-pattern/infra/mysql/repository"
-	"github.com/karamaru-alpha/layer-tx/context-pattern/usecase"
+	"github.com/karamaru-alpha/layer-tx/di-pattern/infra/mysql"
+	"github.com/karamaru-alpha/layer-tx/di-pattern/infra/mysql/repository"
+	"github.com/karamaru-alpha/layer-tx/di-pattern/usecase"
 )
 
 func main() {
@@ -26,8 +26,8 @@ func main() {
 		return
 	}
 
-	txManager := mysql.NewTransactionManager(mysqlDB)
-	userRepository := repository.NewUserRepository(mysqlDB)
+	txManager := mysql.NewTxManager(mysqlDB)
+	userRepository := repository.NewUserRepository()
 	userInteractor := usecase.NewUserInteractor(txManager, userRepository)
 
 	// Scenario Test

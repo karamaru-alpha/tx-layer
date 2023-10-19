@@ -2,11 +2,20 @@
 
 ### [ContextにTxオブジェクトを詰めるパターン](./context-pattern)
 
-#### 概要
-- ContextにTxオブジェクトを詰める
-- RepositoryでContextのValueを参照し、TxオブジェクトがあればTxオブジェクトを、ない場合はDIされた素のDBオブジェクトを利用する。
+<details><summary>details</summary>
 
+#### 概要
+- **ContextにTxオブジェクトを詰める**パターン
+- **RepositoryでContextのValueを参照**し、TxオブジェクトがあればTxオブジェクトを、ない場合はDIされた素のDBオブジェクトを利用する。
 (usecase単位でトランザクション処理が必要な部分だけラップするか、middlewareで各エンドポイント全体をラップするかは選択)
+
+#### Pros/Cons
+- Pros
+  - RepositoryでContextさえ受け取っておけば、トランザクション内で実行するかどうか外部から指定できる
+- Cons
+  - Contextの乱用感が否めない
+  - トランザクション内の処理なのか関数のI/Fだけで判別できず、Contextの内部を見ないと分からない
+  - ReadWriteTransactionとReadOnlyTransactionをI/Fで明確に使い分ける実装が難しい
 
 #### 実装
 
@@ -21,6 +30,11 @@ func (i *userInteractor) UpdateName(ctx context.Context, userID, name string) er
     return nil
 }
 
+// context-pattern/domain/transaction/tx_manager.go
+type TxManager interface {
+    Transaction(ctx context.Context, f func(context.Context) error) error
+}
+
 // context-pattern/infra/mysql/tx_manager.go
 func (t *txManager) Transaction(ctx context.Context, f func(context.Context) error) error {
     tx, err := t.db.BeginTxx(ctx, nil)
@@ -29,7 +43,6 @@ func (t *txManager) Transaction(ctx context.Context, f func(context.Context) err
     }
     defer func() {
         // (recovery process...)
-        // success
         if e := tx.Commit(); e != nil {
             slog.ErrorContext(ctx, "failed to MySQL Commit")
         }
@@ -55,11 +68,179 @@ func (r *userRepository) getMysqlDB(ctx context.Context) infra.MysqlDB {
 }
 ```
 
+```shell
+$ docker compose up -d
+$ run-context-pattern
+```
+</details>
+
+### [Txオブジェクトを抽象化するパターン](./di-pattern)
+
+
+
+<details><summary>details</summary>
+
+#### 概要
+- **Txオブジェクトを抽象化**し、usecase層で扱えるように**DIで注入する**パターン
+- **ReadOnlyTransactionとReadWriteObjectの抽象を分ける**ことで、usecase層でハンドリング可能
+- RepositoryにTxを受け取るようにI/F単位で設定できる
+
 #### Pros/Cons
 - Pros
-  - 同一I/FのRepositoryで、Transactionで実行するかどうか切り分けられる
-  - contextさえ受け渡していればどこでもTxオブジェクトを取り出せる
+  - ReadOnlyかReadWriteかをusecase層で扱えることで、**効率的なTransaction**の貼り方を行える
+  - 関数のI/Fを見ただけで、その処理がReadOnlyなのかどうか判別できる
+  - Repositoryの引数にTxオブジェクトのI/Fを指定することで、**Transactionの開始漏れがなくなる**
 - Cons
-  - contextの乱用感が否めない
-  - どこでDBアクセスが発生するのか/Transactionが使用されているのか分かりにくい
-  - ReadWriteTransactionとReadOnlyTransactionを使い分ける実装が難しく、見た目上も分かりにくい
+  - 全てのRepository呼び出しにTransactionの開始が必要になる
+
+#### 実装
+
+```go
+// di-pattern/usecase/user.go
+func (i *userInteractor) GetUser(ctx context.Context, userID string) (*entity.User, error) {
+    var user *entity.User 
+    i.txManager.ReadOnlyTransaction(ctx, func(ctx context.Context, tx transaction.ROTx) error {
+        // ...
+    })
+    return user, nil
+}
+
+func (i *userInteractor) UpdateName(ctx context.Context, userID, name string) error {
+    i.txManager.Transaction(ctx, func(ctx context.Context, tx transaction.RWTx) error {
+        // ...
+    })
+    return nil
+}
+
+// di-pattern/domain/transaction/tx_manager.go
+type ROTx interface {
+    ROTxImpl()
+}
+
+type RWTx interface {
+    ROTx
+    RWTxImpl()
+}
+
+type TxManager interface {
+    ReadOnlyTransaction(ctx context.Context, f func(ctx context.Context, tx ROTx) error) error
+    Transaction(ctx context.Context, f func(ctx context.Context, tx RWTx) error) error
+}
+
+// di-pattern/infra/mysql/tx.go
+type ROTx interface {
+    GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+}
+
+type RWTx interface {
+    ROTx
+    ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+type rwTx struct {
+    *sqlx.Tx
+}
+
+func (tx *rwTx) ROTxImpl() {}
+func (tx *rwTx) RWTxImpl() {}
+
+func ExtractRWTx(_tx transaction.RWTx) (RWTx, error) {
+    tx, ok := _tx.(*rwTx)
+    if !ok {
+        return nil, errors.New("mysql RWTx is invalid")
+    }
+    return tx, nil
+}
+
+type roTx struct {
+    // MysqlにはReadOnlyなTxオブジェクトが存在しない
+    *sqlx.Tx
+}
+
+func (tx *roTx) ROTxImpl() {}
+
+func ExtractROTx(_tx transaction.ROTx) (ROTx, error) {
+    switch tx := _tx.(type) {
+    case *roTx:
+        return tx, nil
+    case *rwTx: // ReadWriteTransaction内での呼び出しも許可する
+        return tx, nil
+    }
+    return nil, errors.New("mysql ROTx is invalid")
+}
+
+// di-pattern/infra/mysql/tx_manager.go
+func (t *txManager) Transaction(ctx context.Context, f func(context.Context, transaction.RWTx) error) error {
+    tx, err := t.db.BeginTxx(ctx, nil)
+    if err != nil {
+        return err
+    }
+    defer func() {
+        // (recovery process...)
+        if e := tx.Commit(); e != nil {
+            slog.ErrorContext(ctx, "failed to MySQL Commit")
+        }
+    }()
+
+    // ReadWriteTransactionを関数に渡す
+    err = f(ctx, &rwTx{tx})
+    if err != nil {
+        return err
+    }
+    return nil
+    }
+
+func (t *txManager) ReadOnlyTransaction(ctx context.Context, f func(context.Context, transaction.ROTx) error) error {
+    tx, err := t.db.BeginTxx(ctx, nil)
+    if err != nil {
+        return err
+    }
+    defer func() {
+        // (recovery process...)
+        if e := tx.Commit(); e != nil {
+            slog.ErrorContext(ctx, "failed to MySQL Commit")
+        }
+	}()
+
+    // ReadOnlyTransactionを関数に渡す
+    err = f(ctx, &roTx{tx})
+    if err != nil {
+        return err
+    }
+    return nil
+}
+
+// di-pattern/infra/repository/user.go
+func (r *userRepository) LoadByPK(ctx context.Context, _tx transaction.ROTx, userID string) (*entity.User, error) {
+    tx, err := mysql.ExtractROTx(_tx)
+    if err != nil {
+        return nil, err
+    }
+
+    var user User
+    if err := tx.GetContext(ctx, &user, "SELECT * FROM users WHERE user_id = ?", userID); err != nil {
+        return nil, err
+    }
+    return user.toEntity(), nil
+}
+
+func (r *userRepository) Update(ctx context.Context, _tx transaction.RWTx, e *entity.User) error {
+    tx, err := mysql.ExtractRWTx(_tx)
+	if err != nil {
+        return err
+    }
+
+    if _, err := tx.ExecContext(ctx, "UPDATE users SET name = ? WHERE user_id = ?", e.Name, e.UserID); err != nil {
+        return err
+    }
+    return nil
+}
+```
+
+```shell
+$ docker compose up -d
+$ run-di-pattern
+```
+</details>
+
+個人的には後者がかっこいい気がしている

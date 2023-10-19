@@ -1,18 +1,11 @@
 package mysql
 
 import (
-	"context"
-	"database/sql"
 	"fmt"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )
-
-type DB interface {
-	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
-}
 
 type Config struct {
 	Addr     string
