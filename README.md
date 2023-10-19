@@ -74,7 +74,7 @@ $ run-context-pattern
 ```
 </details>
 
-### [Txオブジェクトを抽象化するパターン](./di-pattern)
+### [Txオブジェクトを抽象化しusecase層にDIするパターン](./di-pattern)
 
 
 
