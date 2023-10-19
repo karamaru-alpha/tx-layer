@@ -10,5 +10,4 @@ import (
 type UserRepository interface {
 	LoadByPK(ctx context.Context, tx transaction.ROTx, userID string) (*entity.User, error)
 	Update(ctx context.Context, tx transaction.RWTx, user *entity.User) error
-	Insert(ctx context.Context, tx transaction.RWTx, user *entity.User) error
 }

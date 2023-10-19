@@ -52,15 +52,6 @@ func (r *userRepository) Update(ctx context.Context, e *entity.User) error {
 	return nil
 }
 
-func (r *userRepository) Insert(ctx context.Context, e *entity.User) error {
-	db := r.getMysqlDB(ctx)
-
-	if _, err := db.ExecContext(ctx, "INSERT INTO users VALUES(?, ?)", e.UserID, e.Name); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (r *userRepository) getMysqlDB(ctx context.Context) mysql.DB {
 	// contextにtxオブジェクトが存在すればそれを返却する
 	if transaction, ok := xcontext.Value[xcontext.Transaction](ctx); ok {

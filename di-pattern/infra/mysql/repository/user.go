@@ -52,15 +52,3 @@ func (r *userRepository) Update(ctx context.Context, _tx transaction.RWTx, e *en
 	}
 	return nil
 }
-
-func (r *userRepository) Insert(ctx context.Context, _tx transaction.RWTx, e *entity.User) error {
-	tx, err := mysql.ExtractRWTx(_tx)
-	if err != nil {
-		return err
-	}
-
-	if _, err := tx.ExecContext(ctx, "INSERT INTO users VALUES(?, ?)", e.UserID, e.Name); err != nil {
-		return err
-	}
-	return nil
-}

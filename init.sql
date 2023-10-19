@@ -3,3 +3,5 @@ CREATE TABLE `users` (
     `name` VARCHAR(255) NOT NULL,
     PRIMARY KEY (`user_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `users` VALUES('user_id', 'name');

@@ -9,7 +9,6 @@ import (
 )
 
 type UserInteractor interface {
-	Create(ctx context.Context, userID, name string) error
 	GetUser(ctx context.Context, userID string) (*entity.User, error)
 	UpdateName(ctx context.Context, userID, name string) error
 }
@@ -27,17 +26,6 @@ func NewUserInteractor(
 		txManager,
 		userRepository,
 	}
-}
-
-func (i *userInteractor) Create(ctx context.Context, userID, name string) error {
-	user := &entity.User{
-		UserID: userID,
-		Name:   name,
-	}
-	if err := i.userRepository.Insert(ctx, user); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (i *userInteractor) GetUser(ctx context.Context, userID string) (*entity.User, error) {

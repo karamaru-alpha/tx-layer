@@ -6,8 +6,6 @@ import (
 
 	"golang.org/x/exp/slog"
 
-	"github.com/google/uuid"
-
 	"github.com/karamaru-alpha/layer-tx/di-pattern/infra/mysql"
 	"github.com/karamaru-alpha/layer-tx/di-pattern/infra/mysql/repository"
 	"github.com/karamaru-alpha/layer-tx/di-pattern/usecase"
@@ -32,11 +30,7 @@ func main() {
 
 	// Scenario Test
 	ctx := context.Background()
-	userID := uuid.New().String()
-	if err := userInteractor.Create(ctx, userID, "old name"); err != nil {
-		slog.Error(err.Error())
-		return
-	}
+	userID := "user_id"
 	if _, err := userInteractor.GetUser(ctx, userID); err != nil {
 		slog.Error(err.Error())
 		return

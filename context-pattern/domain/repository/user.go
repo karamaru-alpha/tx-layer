@@ -9,5 +9,4 @@ import (
 type UserRepository interface {
 	LoadByPK(ctx context.Context, userID string) (*entity.User, error)
 	Update(ctx context.Context, e *entity.User) error
-	Insert(ctx context.Context, e *entity.User) error
 }
