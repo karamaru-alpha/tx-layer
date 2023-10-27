@@ -10,6 +10,6 @@ import (
 
 // UserRepository NOTE: domain層でDB情報の関心を持ってしまっている
 type UserRepository interface {
-	LoadByPK(ctx context.Context, tx *sqlx.Tx, userID string) (*entity.User, error)
+	SelectByPK(ctx context.Context, tx *sqlx.Tx, userID string) (*entity.User, error)
 	Update(ctx context.Context, tx *sqlx.Tx, user *entity.User) error
 }

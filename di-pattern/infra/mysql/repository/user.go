@@ -28,7 +28,7 @@ func (u *User) toEntity() *entity.User {
 	}
 }
 
-func (r *userRepository) LoadByPK(ctx context.Context, _tx transaction.ROTx, userID string) (*entity.User, error) {
+func (r *userRepository) SelectByPK(ctx context.Context, _tx transaction.ROTx, userID string) (*entity.User, error) {
 	tx, err := mysql.ExtractROTx(_tx)
 	if err != nil {
 		return nil, err

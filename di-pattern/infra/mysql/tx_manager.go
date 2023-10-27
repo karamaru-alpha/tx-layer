@@ -17,7 +17,7 @@ func NewTxManager(db *sqlx.DB) transaction.TxManager {
 	return &txManager{db}
 }
 
-func (t *txManager) Transaction(ctx context.Context, f func(context.Context, transaction.RWTx) error) error {
+func (t *txManager) ReadWriteTransaction(ctx context.Context, f func(context.Context, transaction.RWTx) error) error {
 	tx, err := t.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err

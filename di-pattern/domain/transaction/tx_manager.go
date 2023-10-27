@@ -13,5 +13,5 @@ type RWTx interface {
 
 type TxManager interface {
 	ReadOnlyTransaction(ctx context.Context, f func(ctx context.Context, tx ROTx) error) error
-	Transaction(ctx context.Context, f func(ctx context.Context, tx RWTx) error) error
+	ReadWriteTransaction(ctx context.Context, f func(ctx context.Context, tx RWTx) error) error
 }

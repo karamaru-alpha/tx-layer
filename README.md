@@ -13,9 +13,8 @@
 - Pros
   - RepositoryでContextさえ受け取っておけば、トランザクション内で実行するかどうか外部から指定できる
 - Cons
-  - Contextの乱用感が否めない
-  - トランザクション内の処理なのか関数のI/Fだけで判別できず、Contextの内部を見ないと分からない
-  - ReadWriteTransactionとReadOnlyTransactionをI/Fで明確に使い分ける実装が難しい
+  - トランザクション内の処理なのかシグニチャで判別できない
+  - ReadOnly/ReadWriteなトランザクションを使い分けるのが少し実装大変
 
 #### 実装
 
@@ -82,16 +81,15 @@ $ run-context-pattern
 
 #### 概要
 - **Txオブジェクトを抽象化**し、usecase層で扱えるように**DIで注入する**パターン
-- **ReadOnlyTransactionとReadWriteObjectの抽象を分ける**ことで、usecase層でハンドリング可能
-- RepositoryにTxを受け取るようにI/F単位で設定できる
+- **ReadOnlyとReadWriteでTxオブジェクトの抽象を分ける**
 
 #### Pros/Cons
 - Pros
   - ReadOnlyかReadWriteかをusecase層で扱えることで、**効率的なTransaction**の貼り方を行える
-  - 関数のI/Fを見ただけで、その処理がReadOnlyなのかどうか判別できる
-  - Repositoryの引数にTxオブジェクトのI/Fを指定することで、**Transactionの開始漏れがなくなる**
+  - 関数のシグニチャを見ただけで、その処理がどのようなトランザクション内で実行されることを期待しているのかが分かる
+  - Repositoryの引数にTxオブジェクトを受け取るように設定できることで、**トランザクションの開始漏れがなくなる**
 - Cons
-  - 全てのRepository呼び出しにTransactionの開始が必要になる
+  - トランザクション内/外で実行するRepositoryのシグニチャが異なる（Txオブジェクトを受け取るかどうか）ので、Repositoryの実装が複雑になる可能性がある (プロジェクト内でRepository呼び出しは必ずトランザクション内で行うという合意が取れていればそこまでデメリットにならない気がしている)
 
 #### 実装
 
@@ -106,7 +104,7 @@ func (i *userInteractor) GetUser(ctx context.Context, userID string) (*entity.Us
 }
 
 func (i *userInteractor) UpdateName(ctx context.Context, userID, name string) error {
-    i.txManager.Transaction(ctx, func(ctx context.Context, tx transaction.RWTx) error {
+    i.txManager.ReadWriteTransaction(ctx, func(ctx context.Context, tx transaction.RWTx) error {
         // ...
     })
     return nil
@@ -124,7 +122,7 @@ type RWTx interface {
 
 type TxManager interface {
     ReadOnlyTransaction(ctx context.Context, f func(ctx context.Context, tx ROTx) error) error
-    Transaction(ctx context.Context, f func(ctx context.Context, tx RWTx) error) error
+    ReadWriteTransaction(ctx context.Context, f func(ctx context.Context, tx RWTx) error) error
 }
 
 // di-pattern/infra/mysql/tx.go
@@ -170,7 +168,7 @@ func ExtractROTx(_tx transaction.ROTx) (ROTx, error) {
 }
 
 // di-pattern/infra/mysql/tx_manager.go
-func (t *txManager) Transaction(ctx context.Context, f func(context.Context, transaction.RWTx) error) error {
+func (t *txManager) ReadWriteTransaction(ctx context.Context, f func(context.Context, transaction.RWTx) error) error {
     tx, err := t.db.BeginTxx(ctx, nil)
     if err != nil {
         return err
@@ -211,7 +209,7 @@ func (t *txManager) ReadOnlyTransaction(ctx context.Context, f func(context.Cont
 }
 
 // di-pattern/infra/repository/user.go
-func (r *userRepository) LoadByPK(ctx context.Context, _tx transaction.ROTx, userID string) (*entity.User, error) {
+func (r *userRepository) SelectByPK(ctx context.Context, _tx transaction.ROTx, userID string) (*entity.User, error) {
     tx, err := mysql.ExtractROTx(_tx)
     if err != nil {
         return nil, err

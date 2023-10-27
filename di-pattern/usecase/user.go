@@ -32,7 +32,7 @@ func (i *userInteractor) GetUser(ctx context.Context, userID string) (*entity.Us
 	var user *entity.User
 	if err := i.txManager.ReadOnlyTransaction(ctx, func(ctx context.Context, tx transaction.ROTx) error {
 		var err error
-		user, err = i.userRepository.LoadByPK(ctx, tx, userID)
+		user, err = i.userRepository.SelectByPK(ctx, tx, userID)
 		if err != nil {
 			return err
 		}
@@ -44,8 +44,8 @@ func (i *userInteractor) GetUser(ctx context.Context, userID string) (*entity.Us
 }
 
 func (i *userInteractor) UpdateName(ctx context.Context, userID, name string) error {
-	if err := i.txManager.Transaction(ctx, func(ctx context.Context, tx transaction.RWTx) error {
-		user, err := i.userRepository.LoadByPK(ctx, tx, userID)
+	if err := i.txManager.ReadWriteTransaction(ctx, func(ctx context.Context, tx transaction.RWTx) error {
+		user, err := i.userRepository.SelectByPK(ctx, tx, userID)
 		if err != nil {
 			return err
 		}

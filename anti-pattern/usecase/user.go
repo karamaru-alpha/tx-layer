@@ -55,7 +55,7 @@ func (i *userInteractor) UpdateName(ctx context.Context, userID, name string) er
 		}
 	}()
 
-	user, err := i.userRepository.LoadByPK(ctx, tx, userID)
+	user, err := i.userRepository.SelectByPK(ctx, tx, userID)
 	if err != nil {
 		return err
 	}

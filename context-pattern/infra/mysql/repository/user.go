@@ -33,7 +33,7 @@ func (u *User) toEntity() *entity.User {
 	}
 }
 
-func (r *userRepository) LoadByPK(ctx context.Context, userID string) (*entity.User, error) {
+func (r *userRepository) SelectByPK(ctx context.Context, userID string) (*entity.User, error) {
 	db := r.getMysqlDB(ctx)
 
 	var user User

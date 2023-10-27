@@ -28,7 +28,7 @@ func (u *User) toEntity() *entity.User {
 	}
 }
 
-func (r *userRepository) LoadByPK(ctx context.Context, tx *sqlx.Tx, userID string) (*entity.User, error) {
+func (r *userRepository) SelectByPK(ctx context.Context, tx *sqlx.Tx, userID string) (*entity.User, error) {
 	var user User
 	if err := tx.GetContext(ctx, &user, "SELECT * FROM users WHERE user_id = ?", userID); err != nil {
 		return nil, err

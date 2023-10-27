@@ -29,7 +29,7 @@ func NewUserInteractor(
 }
 
 func (i *userInteractor) GetUser(ctx context.Context, userID string) (*entity.User, error) {
-	user, err := i.userRepository.LoadByPK(ctx, userID)
+	user, err := i.userRepository.SelectByPK(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func (i *userInteractor) GetUser(ctx context.Context, userID string) (*entity.Us
 
 func (i *userInteractor) UpdateName(ctx context.Context, userID, name string) error {
 	if err := i.txManager.Transaction(ctx, func(ctx context.Context) error {
-		user, err := i.userRepository.LoadByPK(ctx, userID)
+		user, err := i.userRepository.SelectByPK(ctx, userID)
 		if err != nil {
 			return err
 		}
