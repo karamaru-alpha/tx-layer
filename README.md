@@ -97,16 +97,20 @@ $ run-context-pattern
 // di-pattern/usecase/user.go
 func (i *userInteractor) GetUser(ctx context.Context, userID string) (*entity.User, error) {
     var user *entity.User 
-    i.txManager.ReadOnlyTransaction(ctx, func(ctx context.Context, tx transaction.ROTx) error {
+    if err := i.txManager.ReadOnlyTransaction(ctx, func(ctx context.Context, tx transaction.ROTx) error {
         // ...
-    })
+    }); err != nil {
+        return nil, err
+    }
     return user, nil
 }
 
 func (i *userInteractor) UpdateName(ctx context.Context, userID, name string) error {
-    i.txManager.ReadWriteTransaction(ctx, func(ctx context.Context, tx transaction.RWTx) error {
+    if err := i.txManager.ReadWriteTransaction(ctx, func(ctx context.Context, tx transaction.RWTx) error {
         // ...
-    })
+    }); err != nil {
+        return err
+    }
     return nil
 }
 
